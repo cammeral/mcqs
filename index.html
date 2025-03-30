@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الاختبارات الإلكترونية المتكامل</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4895ef;
+            --success-color: #4cc9f0;
+            --warning-color: #f72585;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f5f7fa;
+            color: var(--dark-color);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .timer-container {
+            background-color: var(--dark-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin: 10px 0;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin-bottom: 30px;
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .question {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .question img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 10px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid #e9ecef;
+        }
+        
+        .option:hover {
+            background-color: #e9ecef;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(67, 97, 238, 0.4);
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .result-container {
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .chart-container {
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+        
+        .screenshot-notice {
+            background-color: rgba(0,0,0,0.05);
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin: 10px 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>نظام الاختبارات الإلكترونية المتكامل</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- مرحلة تسجيل البيانات -->
+        <div id="studentInfoForm" class="card">
+            <h2 style="margin-bottom: 20px; color: var(--primary-color);">معلومات الطالب</h2>
+            
+            <div class="form-group">
+                <label for="studentName">الاسم الكامل</label>
+                <input type="text" id="studentName" placeholder="أدخل اسمك الثلاثي" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="studentId">رقم الهوية/الجامعي</label>
+                <input type="text" id="studentId" placeholder="أدخل رقم هويتك">
+            </div>
+            
+            <button id="startQuizBtn" class="btn">بدء الاختبار</button>
+        </div>
+
+        <!-- مرحلة الأسئلة -->
+        <div id="quizForm" class="card hidden">
+            <div class="timer-container">
+                الوقت المتبقي: <span id="timer">00:00</span>
+            </div>
+            
+            <div class="screenshot-notice">
+                سيتم أخذ لقطات شاشة عشوائية خلال الاختبار لضمان النزاهة
+            </div>
+            
+            <h2 style="margin-bottom: 20px; color: var(--primary-color);">اختبار المعلومات العامة</h2>
+            
+            <form id="quizQuestions">
+                <div class="question">
+                    <h3>1. ما هي عاصمة المملكة العربية السعودية؟</h3>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Riyadh_skyline.jpg/800px-Riyadh_skyline.jpg" alt="صورة لمدينة الرياض">
+                    <div class="options">
+                        <label class="option">
+                            <input type="radio" name="q1" value="الرياض" required>
+                            الرياض
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q1" value="جدة">
+                            جدة
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q1" value="الدمام">
+                            الدمام
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q1" value="مكة المكرمة">
+                            مكة المكرمة
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="question">
+                    <h3>2. ما هي اللغة التي تستخدم لإنشاء صفحات الويب؟</h3>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/HTML5_logo_and_wordmark.svg/800px-HTML5_logo_and_wordmark.svg.png" alt="شعار HTML">
+                    <div class="options">
+                        <label class="option">
+                            <input type="radio" name="q2" value="بايثون" required>
+                            بايثون
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q2" value="HTML">
+                            HTML
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q2" value="جافا">
+                            جافا
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q2" value="سي ++">
+                            سي ++
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="question">
+                    <h3>3. كم عدد كواكب المجموعة الشمسية؟</h3>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Planets2013.svg/800px-Planets2013.svg.png" alt="المجموعة الشمسية">
+                    <div class="options">
+                        <label class="option">
+                            <input type="radio" name="q3" value="7" required>
+                            7 كواكب
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q3" value="8">
+                            8 كواكب
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q3" value="9">
+                            9 كواكب
+                        </label>
+                        <label class="option">
+                            <input type="radio" name="q3" value="10">
+                            10 كواكب
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="button" id="submitQuizBtn" class="btn">إرسال الإجابات</button>
+            </form>
+        </div>
+
+        <!-- مرحلة النتائج -->
+        <div id="resultContainer" class="card hidden">
+            <div class="result-container">
+                <h2 class="result-title">تم إكمال الاختبار بنجاح!</h2>
+                <div class="result-score" id="finalScore">0/3</div>
+                
+                <div class="chart-container">
+                    <canvas id="resultChart"></canvas>
+                </div>
+                
+                <div id="detailedReport" style="margin-top: 20px; text-align: right;"></div>
+                
+                <button id="restartQuizBtn" class="btn" style="margin-top: 30px;">إعادة الاختبار</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // عناصر DOM
+        const studentInfoForm = document.getElementById('studentInfoForm');
+        const quizForm = document.getElementById('quizForm');
+        const resultContainer = document.getElementById('resultContainer');
+        const startQuizBtn = document.getElementById('startQuizBtn');
+        const submitQuizBtn = document.getElementById('submitQuizBtn');
+        const restartQuizBtn = document.getElementById('restartQuizBtn');
+        const timerElement = document.getElementById('timer');
+        const finalScore = document.getElementById('finalScore');
+        const detailedReport = document.getElementById('detailedReport');
+
+        // بيانات الطالب
+        let studentData = {
+            name: '',
+            id: ''
+        };
+
+        // الإجابات الصحيحة
+        const correctAnswers = {
+            q1: 'الرياض',
+            q2: 'HTML',
+            q3: '8'
+        };
+
+        // متغيرات المؤقت
+        let timer;
+        let timeLeft = 600; // 10 دقائق بالثواني
+
+        // متغيرات لقطات الشاشة
+        let screenshots = [];
+        let screenshotInterval;
+
+        // بدء الاختبار
+        startQuizBtn.addEventListener('click', () => {
+            const name = document.getElementById('studentName').value.trim();
+            const id = document.getElementById('studentId').value.trim();
+
+            if (!name) {
+                alert('الرجاء إدخال الاسم الكامل');
+                return;
+            }
+
+            studentData.name = name;
+            studentData.id = id || 'غير مسجل';
+
+            studentInfoForm.classList.add('hidden');
+            quizForm.classList.remove('hidden');
+            
+            // بدء المؤقت
+            startTimer();
+            
+            // بدء أخذ لقطات الشاشة
+            startScreenshotCapture();
+        });
+
+        // مؤقت الاختبار
+        function startTimer() {
+            updateTimerDisplay();
+            
+            timer = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    autoSubmitQuiz();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const seconds = (timeLeft % 60).toString().padStart(2, '0');
+            timerElement.textContent = `${minutes}:${seconds}`;
+            
+            // تغيير اللون عندما يقل الوقت عن دقيقتين
+            if (timeLeft < 120) {
+                timerElement.style.color = '#ff5252';
+            }
+        }
+
+        function autoSubmitQuiz() {
+            alert("انتهى الوقت المحدد للاختبار!");
+            submitQuiz();
+        }
+
+        // أخذ لقطات الشاشة
+        function startScreenshotCapture() {
+            // لقطة أولى عند البدء
+            takeScreenshot();
+            
+            // لقطات دورية كل 30-60 ثانية عشوائيًا
+            screenshotInterval = setInterval(() => {
+                takeScreenshot();
+            }, 30000 + Math.random() * 30000);
+        }
+
+        function takeScreenshot() {
+            html2canvas(document.body).then(canvas => {
+                const screenshot = {
+                    timestamp: new Date(),
+                    dataUrl: canvas.toDataURL('image/jpeg', 0.7)
+                };
+                screenshots.push(screenshot);
+                
+                // يمكنك هنا إرسال اللقطة للخادم إذا لزم الأمر
+                // uploadScreenshot(screenshot);
+            });
+        }
+
+        // إرسال النتائج
+        submitQuizBtn.addEventListener('click', () => {
+            submitQuiz();
+        });
+
+        function submitQuiz() {
+            // إيقاف المؤقت ولقطات الشاشة
+            clearInterval(timer);
+            clearInterval(screenshotInterval);
+            
+            // جمع الإجابات
+            const answers = {};
+            document.querySelectorAll('input[type="radio"]:checked').forEach(input => {
+                answers[input.name] = input.value;
+            });
+
+            // حساب النتيجة
+            let score = 0;
+            for (const question in correctAnswers) {
+                if (answers[question] === correctAnswers[question]) {
+                    score++;
+                }
+            }
+
+            // عرض النتائج
+            quizForm.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            finalScore.textContent = `${score}/${Object.keys(correctAnswers).length}`;
+            
+            // إنشاء التقرير المفصل
+            generateDetailedReport(score, answers);
+            
+            // إنشاء الرسم البياني
+            createResultChart(score);
+            
+            // إعداد رسالة النتائج
+            const message = createResultMessage(score, answers);
+            
+            // يمكنك هنا إرسال النتائج إلى الخادم أو Telegram
+            // sendResultsToServer(message, screenshots);
+        }
+
+        // إنشاء التقرير المفصل
+        function generateDetailedReport(score, answers) {
+            let reportHTML = '<h3 style="color: var(--primary-color); margin-bottom: 15px;">التقرير المفصل:</h3>';
+            reportHTML += '<table style="width: 100%; border-collapse: collapse;">';
+            reportHTML += `
+                <tr style="background-color: #f8f9fa;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">السؤال</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">إجابتك</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">الإجابة الصحيحة</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">النقطة</th>
+                </tr>
+            `;
+            
+            for (const question in correctAnswers) {
+                const isCorrect = answers[question] === correctAnswers[question];
+                reportHTML += `
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${question.slice(1)}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${answers[question] || 'لم يتم الإجابة'}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${correctAnswers[question]}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd; color: ${isCorrect ? 'green' : 'red'};">
+                            ${isCorrect ? '✔' : '✖'}
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            reportHTML += '</table>';
+            reportHTML += `<p style="margin-top: 15px; font-weight: bold;">النسبة المئوية: ${Math.round((score / Object.keys(correctAnswers).length) * 100)}%</p>`;
+            
+            detailedReport.innerHTML = reportHTML;
+        }
+
+        // إنشاء الرسم البياني
+        function createResultChart(score) {
+            const ctx = document.getElementById('resultChart').getContext('2d');
+            const totalQuestions = Object.keys(correctAnswers).length;
+            
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['إجابات صحيحة', 'إجابات خاطئة'],
+                    datasets: [{
+                        data: [score, totalQuestions - score],
+                        backgroundColor: ['#4cc9f0', '#f72585'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            rtl: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // إعداد رسالة النتائج
+        function createResultMessage(score, answers) {
+            let message = `🎓 نتائج الاختبار\n\n`;
+            message += `الطالب: ${studentData.name}\n`;
+            message += `رقم الهوية: ${studentData.id}\n\n`;
+            message += `الدرجة: ${score}/${Object.keys(correctAnswers).length}\n`;
+            message += `النسبة: ${Math.round((score / Object.keys(correctAnswers).length) * 100)}%\n\n`;
+            message += `التفاصيل:\n`;
+            
+            for (const question in correctAnswers) {
+                message += `${question.slice(1)}. ${answers[question] || 'لم يتم الإجابة'} `;
+                message += `${answers[question] === correctAnswers[question] ? '✅' : '❌'}\n`;
+            }
+            
+            message += `\n🕒 وقت الانتهاء: ${new Date().toLocaleString('ar-SA')}`;
+            
+            return message;
+        }
+
+        // إعادة الاختبار
+        restartQuizBtn.addEventListener('click', () => {
+            // إعادة تعيين النموذج
+            document.getElementById('quizQuestions').reset();
+            document.getElementById('studentName').value = '';
+            document.getElementById('studentId').value = '';
+            
+            // إعادة تعيين المتغيرات
+            timeLeft = 600;
+            screenshots = [];
+            
+            // إعادة تعيين العرض
+            resultContainer.classList.add('hidden');
+            studentInfoForm.classList.remove('hidden');
+            timerElement.style.color = '';
+        });
+    </script>
+</body>
+</html>
