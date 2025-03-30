@@ -155,6 +155,23 @@
             font-size: 0.9rem;
             color: #666;
         }
+        
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
@@ -280,6 +297,8 @@
                 
                 <div id="detailedReport" style="margin-top: 20px; text-align: right;"></div>
                 
+                <div id="resultAlert" class="alert hidden"></div>
+                
                 <button id="restartQuizBtn" class="btn" style="margin-top: 30px;">إعادة الاختبار</button>
             </div>
         </div>
@@ -296,6 +315,7 @@
         const timerElement = document.getElementById('timer');
         const finalScore = document.getElementById('finalScore');
         const detailedReport = document.getElementById('detailedReport');
+        const resultAlert = document.getElementById('resultAlert');
 
         // بيانات الطالب
         let studentData = {
@@ -383,17 +403,30 @@
             }, 30000 + Math.random() * 30000);
         }
 
-        function takeScreenshot() {
-            html2canvas(document.body).then(canvas => {
+        async function takeScreenshot() {
+            try {
+                // تأخير 1 ثانية لضمان اكتمال التحميل
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                const canvas = await html2canvas(document.body, {
+                    scale: 0.8, // تقليل الجودة لتقليل الحجم
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true,
+                    scrollY: -window.scrollY // تجنب الجزء غير المرئي
+                });
+                
                 const screenshot = {
                     timestamp: new Date(),
-                    dataUrl: canvas.toDataURL('image/jpeg', 0.7)
+                    dataUrl: canvas.toDataURL('image/jpeg', 0.6) // جودة متوسطة
                 };
-                screenshots.push(screenshot);
                 
-                // يمكنك هنا إرسال اللقطة للخادم إذا لزم الأمر
-                // uploadScreenshot(screenshot);
-            });
+                screenshots.push(screenshot);
+                console.log('تم أخذ لقطة شاشة', screenshot.timestamp);
+                
+            } catch (error) {
+                console.error('خطأ في أخذ لقطة الشاشة:', error);
+            }
         }
 
         // إرسال النتائج
@@ -401,7 +434,7 @@
             submitQuiz();
         });
 
-        function submitQuiz() {
+        async function submitQuiz() {
             // إيقاف المؤقت ولقطات الشاشة
             clearInterval(timer);
             clearInterval(screenshotInterval);
@@ -434,8 +467,23 @@
             // إعداد رسالة النتائج
             const message = createResultMessage(score, answers);
             
-            // يمكنك هنا إرسال النتائج إلى الخادم أو Telegram
-            // sendResultsToServer(message, screenshots);
+            // إرسال النتائج إلى Telegram
+            const result = await sendToTelegram(message);
+            
+            // عرض رسالة للمستخدم
+            if (result) {
+                resultAlert.classList.remove('alert-danger');
+                resultAlert.classList.add('alert-success');
+                resultAlert.textContent = 'تم إرسال النتائج بنجاح إلى المعلم عبر Telegram';
+            } else {
+                resultAlert.classList.remove('alert-success');
+                resultAlert.classList.add('alert-danger');
+                resultAlert.textContent = 'تم حفظ النتائج محلياً ولكن هناك مشكلة في الإرسال إلى Telegram';
+            }
+            resultAlert.classList.remove('hidden');
+            
+            // حفظ النتائج محلياً
+            saveResultsLocally(score, answers, message);
         }
 
         // إنشاء التقرير المفصل
@@ -500,21 +548,96 @@
 
         // إعداد رسالة النتائج
         function createResultMessage(score, answers) {
-            let message = `🎓 نتائج الاختبار\n\n`;
-            message += `الطالب: ${studentData.name}\n`;
-            message += `رقم الهوية: ${studentData.id}\n\n`;
-            message += `الدرجة: ${score}/${Object.keys(correctAnswers).length}\n`;
-            message += `النسبة: ${Math.round((score / Object.keys(correctAnswers).length) * 100)}%\n\n`;
-            message += `التفاصيل:\n`;
+            let message = `🎓 <b>نتائج الاختبار</b>\n\n`;
+            message += `👤 <b>الطالب:</b> ${studentData.name}\n`;
+            message += `🆔 <b>رقم الهوية:</b> ${studentData.id}\n\n`;
+            message += `📊 <b>الدرجة:</b> ${score}/${Object.keys(correctAnswers).length}\n`;
+            message += `📈 <b>النسبة:</b> ${Math.round((score / Object.keys(correctAnswers).length) * 100)}%\n\n`;
+            message += `<b>التفاصيل:</b>\n`;
             
             for (const question in correctAnswers) {
                 message += `${question.slice(1)}. ${answers[question] || 'لم يتم الإجابة'} `;
                 message += `${answers[question] === correctAnswers[question] ? '✅' : '❌'}\n`;
             }
             
-            message += `\n🕒 وقت الانتهاء: ${new Date().toLocaleString('ar-SA')}`;
+            message += `\n🕒 <b>وقت الانتهاء:</b> ${new Date().toLocaleString('ar-SA')}`;
             
             return message;
+        }
+
+        // إرسال إلى Telegram
+        async function sendToTelegram(message) {
+            const botToken = '7390077316:AAHNEtFesiXM7h6Wp4BmrAr7DluySaa79t4'; // استبدل بالتوكن الصحيح
+            const chatId = '6670082375'; // استبدل بالـ chat_id الصحيح
+            
+            try {
+                // 1. إرسال النتائج النصية
+                const textResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: message,
+                        parse_mode: 'HTML'
+                    })
+                });
+
+                const textData = await textResponse.json();
+                console.log('رسالة النتائج:', textData);
+
+                // 2. إرسال لقطات الشاشة (إذا وجدت)
+                if (screenshots.length > 0) {
+                    // نرسل أول لقطة فقط لتجنب مشاكل حجم الرسالة
+                    const screenshot = screenshots[0];
+                    const blob = dataURLtoBlob(screenshot.dataUrl);
+                    const formData = new FormData();
+                    formData.append('chat_id', chatId);
+                    formData.append('photo', blob, 'screenshot.jpg');
+                    formData.append('caption', 'لقطة شاشة من الاختبار');
+
+                    await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+
+                return true;
+            } catch (error) {
+                console.error('خطأ في الإرسال:', error);
+                return false;
+            }
+        }
+
+        // تحويل DataURL إلى Blob
+        function dataURLtoBlob(dataurl) {
+            const arr = dataurl.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], { type: mime });
+        }
+
+        // حفظ النتائج محلياً
+        function saveResultsLocally(score, answers, message) {
+            const results = JSON.parse(localStorage.getItem('quizResults') || '[]');
+            
+            results.push({
+                student: studentData,
+                score: score,
+                answers: answers,
+                message: message,
+                screenshots: screenshots,
+                timestamp: new Date()
+            });
+            
+            localStorage.setItem('quizResults', JSON.stringify(results));
+            console.log('تم حفظ النتائج محلياً:', results);
         }
 
         // إعادة الاختبار
@@ -532,6 +655,7 @@
             resultContainer.classList.add('hidden');
             studentInfoForm.classList.remove('hidden');
             timerElement.style.color = '';
+            resultAlert.classList.add('hidden');
         });
     </script>
 </body>
